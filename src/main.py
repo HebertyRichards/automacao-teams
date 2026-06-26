@@ -75,5 +75,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-## aidicionar comentario teste para pr
