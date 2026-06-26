@@ -97,11 +97,13 @@ def open_prs_list(repo: str, prs: list[PullRequest]) -> dict:
 # --- DM pro autor ------------------------------------------------------------
 
 def pr_merged(pr: PullRequest) -> dict:
-    return _card("🎉 Sua PR foi mergeada!", _author_facts(pr), pr.html_url)
+    facts = _author_facts(pr) + [("Mergeada", f"{pr.head.ref} → {pr.base.ref}")]
+    return _card("🎉 Sua PR foi mergeada!", facts, pr.html_url)
 
 
 def pr_closed(pr: PullRequest) -> dict:
-    return _card("🚫 Sua PR foi fechada sem merge", _author_facts(pr), pr.html_url)
+    facts = _author_facts(pr) + [("Branch", f"{pr.head.ref} → {pr.base.ref}")]
+    return _card("🚫 Sua PR foi fechada sem merge", facts, pr.html_url)
 
 
 def pr_approved(pr: PullRequest, reviewer: str) -> dict:
