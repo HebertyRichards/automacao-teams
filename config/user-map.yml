@@ -5,9 +5,15 @@ users:
   Heberyn: hebertylima@geeknine.onmicrosoft.com
 
 # Convenção automática (opcional) — DESCOMENTE para NÃO precisar listar todo mundo:
-# qualquer login do GitHub vira {login}@geeknine.onmicrosoft.com, então todos do
-# domínio geeknine recebem a DM automaticamente. (As exceções em "users" têm prioridade.)
+# qualquer login do GitHub vira {login}@geeknine.onmicrosoft.com.
+# ⚠️ SÓ funciona se o login do GitHub == prefixo do e-mail real (ex.: login
+#    "joao.silva" + e-mail "joao.silva@geeknine"). Se não bate (ex.: login
+#    "HebertyRichards" -> "hebertylima@..."), use as exceções em "users" acima.
 # email_domain: geeknine.onmicrosoft.com
+
+# GitHub Enterprise + SSO (SAML com Azure AD): nesse cenário dá pra buscar o
+# e-mail real de cada pessoa AUTOMATICAMENTE pela API do GitHub (sem mapa manual
+# nem convenção). Não está implementado aqui — veja a seção "SSO" no README.
 
 # Aprovadores @mencionados no grupo quando uma PR é aberta (e-mails individuais)
 approvers:

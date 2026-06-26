@@ -1,11 +1,11 @@
 name: Teams PR Notify (self)
 
 # Workflow auto-contido: dispara DIRETO neste repo (não precisa de outro repo).
-# Use este para TESTAR. Para aplicar em outros repos, use examples/teams-pr-notifier.yml.
+# Para usar em outro repo, copie src/, requirements.txt, config/user-map.yml e este arquivo.
 
 on:
   pull_request:
-    types: [opened, reopened, ready_for_review, closed]
+    types: [opened, reopened, ready_for_review, closed, review_requested]
   pull_request_review:
     types: [submitted]
   issue_comment:               # comentário na conversa da PR

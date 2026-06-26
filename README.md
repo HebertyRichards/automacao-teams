@@ -16,6 +16,7 @@ Evento de PR ─► GitHub Actions ─► POST ─► Power Automate ─► Team
 | Evento do GitHub | Para onde vai | Mensagem |
 |---|---|---|
 | PR `opened` / `reopened` / `ready_for_review` (não-draft) | grupo | 🆕 Nova PR + @menção dos aprovadores |
+| PR `review_requested` (pedir review / re-request) | DM revisor | 🔍 Fulano pediu sua revisão na PR |
 | review `approved` | DM autor | ✅ Fulano aprovou sua PR |
 | review `changes_requested` | DM autor | 📝 Fulano pediu alterações |
 | `issue_comment` (comentário na conversa) | DM autor | 💬 Fulano comentou na sua PR |
@@ -89,6 +90,14 @@ approvers:                               # @mencionados no grupo quando abre PR
 > O e-mail (em `users` e `approvers`) tem que ser o mesmo com que a pessoa entra no
 > Teams, e deve ser **usuário nativo do tenant** (convidado não recebe DM do Flow bot).
 
+**Formas de preencher o `users:`** (login do GitHub → e-mail do Teams):
+
+| Forma | Como | Quando usar |
+|---|---|---|
+| **Mapa explícito** | listar `login: email` | confiável; ideal quando login ≠ e-mail |
+| **Convenção `email_domain`** | `email_domain: geeknine.onmicrosoft.com` → deriva `{login}@dominio` | só se o **login == prefixo do e-mail** |
+| **SSO (GitHub Enterprise)** | busca o e-mail real pela API | automático; ver seção SSO abaixo |
+
 ### 4. Garantir que o `notify.yml` está na branch `main`
 
 Eventos `pull_request` rodam a versão do workflow que está na **branch base**. Então
@@ -100,6 +109,69 @@ Crie uma branch a partir da `main` → faça qualquer mudança → **abra uma PR
 - Acompanhe em **Actions**.
 - O card cai no grupo (com @menção). Aprove / feche / faça merge para disparar as DMs.
 - Confira a entrega em **Power Automate → Meus fluxos → histórico de execuções**.
+
+---
+
+## Quando a mensagem é enviada (e o que pode faltar)
+
+### Mensagens de GRUPO (PR aberta, lista de PRs)
+São enviadas se:
+- ✅ `TEAMS_CHANNEL_WEBHOOK` cadastrado **e** o fluxo do grupo com **"Qualquer pessoa"**.
+- ✅ a PR **não é draft** (drafts são ignorados de propósito).
+- A **@menção** só "pinga" se os e-mails de `approvers` forem **usuários do tenant** que estão **no grupo**.
+- **Não depende** do `users:` — a notificação no grupo sai mesmo sem mapeamento.
+
+### Mensagens de DM (aprovada, alteração, comentário, fechada, mergeada)
+Só chegam se **TODAS** estas forem verdade:
+1. ✅ `TEAMS_DM_WEBHOOK` cadastrado **e** o fluxo da DM com **"Qualquer pessoa"**.
+2. ✅ o **login do GitHub do autor** resolve um e-mail (está em `users:`, ou via `email_domain`).
+3. ✅ esse e-mail é **usuário NATIVO do tenant** (convidado/gmail **não** recebe DM).
+4. ✅ (para review/comentário) quem agiu **não é o próprio autor** (auto-ação é ignorada).
+
+### Por que "não chegou nada" — diagnóstico rápido
+
+| Sintoma | Onde ver | Causa provável |
+|---|---|---|
+| `TEAMS_DM_WEBHOOK não configurado — DM ignorada.` | log do Actions | secret da DM não existe |
+| `Sem e-mail do destinatário — DM ignorada.` | log do Actions | login não está em `users` (nem `email_domain`) |
+| `401 Unauthorized` | log do Actions | fluxo sem **"Qualquer pessoa"** ou URL sem `sig` |
+| Actions **verde**, mas DM não chega | **Power Automate → histórico** | e-mail não é usuário nativo do tenant (Flow não acha a pessoa) |
+| Nenhum run apareceu | aba Actions | `notify.yml` não está na `main` / evento não habilitado |
+
+> ⚠️ Atenção ao 4º caso: o GitHub recebe **202 (sucesso)** ao chamar o fluxo, então o
+> Actions fica **verde** mesmo quando o Power Automate **falha** internamente em achar a
+> pessoa. Se o Actions passou mas a DM não veio, **confira o histórico do fluxo no Power Automate**.
+
+---
+
+## SSO (GitHub Enterprise) — mapeamento automático
+
+Se a empresa usa **GitHub Enterprise Cloud com SAML/SSO ligado ao Azure AD**, dá pra
+descobrir o e-mail real de cada pessoa **automaticamente** — sem mapa manual nem convenção.
+
+**Como funciona:** no SSO, cada usuário do GitHub fica vinculado a uma identidade externa
+(o e-mail/UPN do Azure AD). Esse vínculo é consultável pela **API GraphQL** do GitHub:
+
+```graphql
+query($org: String!) {
+  organization(login: $org) {
+    samlIdentityProvider {
+      externalIdentities(first: 100) {
+        nodes {
+          user { login }                 # login do GitHub
+          samlIdentity { nameId }        # e-mail/UPN do Azure AD (Teams)
+        }
+      }
+    }
+  }
+}
+```
+
+Com isso o código montaria o mapa `login → e-mail` em tempo de execução, **zero manutenção**.
+
+**Requisitos:** GitHub Enterprise Cloud, SAML SSO configurado, e um **token (PAT) com escopo
+`admin:org`** (ou `read:org` conforme a política), guardado como secret. Não está
+implementado neste repo — é o caminho recomendado se/quando a empresa tiver Enterprise+SSO.
 
 ---
 

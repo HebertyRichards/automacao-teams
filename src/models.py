@@ -37,6 +37,8 @@ class Review(BaseModel):
 class PullRequestEvent(BaseModel):
     action: str
     pull_request: PullRequest
+    requested_reviewer: GitHubUser | None = None  # presente em review_requested
+    sender: GitHubUser | None = None              # quem disparou o evento
 
 
 class ReviewEvent(BaseModel):

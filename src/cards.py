@@ -115,6 +115,11 @@ def pr_changes_requested(pr: PullRequest, reviewer: str) -> dict:
                  _author_facts(pr), pr.html_url, link_label="Ver comentários")
 
 
+def pr_review_requested(pr: PullRequest, requester: str) -> dict:
+    return _card(f"🔍 {requester} pediu sua revisão na PR",
+                 _author_facts(pr), pr.html_url, link_label="Revisar PR")
+
+
 def pr_commented(number: int, title: str, commenter: str,
                  comment_url: str, body: str = "") -> dict:
     card = _card(f"💬 {commenter} comentou na sua PR",

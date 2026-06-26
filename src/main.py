@@ -38,6 +38,13 @@ def handle_pull_request(event: PullRequestEvent, teams: TeamsClient,
         card = cards.pr_merged(pr) if pr.merged else cards.pr_closed(pr)
         teams.post_dm(mapping.email_for(pr.user.login, user_map, domain), card)
 
+    elif event.action == "review_requested" and event.requested_reviewer:
+        # cobre tanto pedir review quanto "re-request review" (avaliar de novo).
+        requester = event.sender.login if event.sender else pr.user.login
+        reviewer_login = event.requested_reviewer.login
+        card = cards.pr_review_requested(pr, requester)
+        teams.post_dm(mapping.email_for(reviewer_login, user_map, domain), card)
+
 
 def handle_review(event: ReviewEvent, teams: TeamsClient, user_map: dict,
                   domain: str) -> None:
