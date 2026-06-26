@@ -1,0 +1,38 @@
+name: Teams PR Notify (self)
+
+# Workflow auto-contido: dispara DIRETO neste repo (não precisa de outro repo).
+# Use este para TESTAR. Para aplicar em outros repos, use examples/teams-pr-notifier.yml.
+
+on:
+  pull_request:
+    types: [opened, reopened, ready_for_review, closed]
+  pull_request_review:
+    types: [submitted]
+  schedule:
+    - cron: "0 12 * * 1-5"   # lista de PRs abertas, dias úteis 12:00 UTC
+  workflow_dispatch:          # botão pra rodar a lista manualmente
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependências
+        run: pip install -r requirements.txt
+
+      - name: Notificar Teams
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TEAMS_CHANNEL_WEBHOOK: ${{ secrets.TEAMS_CHANNEL_WEBHOOK }}
+          TEAMS_DM_WEBHOOK: ${{ secrets.TEAMS_DM_WEBHOOK }}
+          USER_MAP_PATH: config/user-map.yml
+        run: python src/main.py

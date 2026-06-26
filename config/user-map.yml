@@ -1,0 +1,10 @@
+# Mapa: login do GitHub -> e-mail com que a pessoa entra no Teams.
+
+# DM pro AUTOR: liga login do GitHub -> e-mail do Teams
+users:
+  HebertyRichards: hebertylima@geeknine.onmicrosoft.com
+
+# Aprovadores @mencionados no canal/grupo quando uma PR é aberta.
+approvers:
+  - name: Heberty Lima
+    email: hebertylima@geeknine.onmicrosoft.com
