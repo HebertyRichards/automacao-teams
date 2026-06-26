@@ -16,7 +16,8 @@ class TeamsClient:
     @staticmethod
     def _post(url: str, payload: dict) -> None:
         resp = requests.post(url, json=payload, timeout=20)
-        resp.raise_for_status()
+        if resp.status_code >= 400:
+            raise RuntimeError(f"Falha ao postar no Teams: HTTP {resp.status_code}")
 
     def post_channel(self, card: dict) -> None:
         if not self.channel_webhook:

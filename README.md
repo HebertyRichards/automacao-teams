@@ -178,5 +178,4 @@ implementado neste repo — é o caminho recomendado se/quando a empresa tiver E
 ## Notas
 
 - **Sem Azure / Graph / Bot:** a única "credencial" são as 2 URLs de fluxo (secrets).
-- **Segurança:** as URLs contêm `sig=` → são segredos; ficam só nos GitHub Secrets.
 - O payload enviado é: grupo `{"card": {...}}` · DM `{"recipient": "email", "card": {...}}`.

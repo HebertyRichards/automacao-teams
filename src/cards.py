@@ -1,4 +1,12 @@
+import re
+
 from models import PullRequest
+
+_MD_SPECIAL = re.compile(r"([\\`*_~\[\]()])")
+
+
+def _md(text: str) -> str:
+    return _MD_SPECIAL.sub(r"\\\1", text or "")
 
 
 def _card(title: str, facts: list[tuple[str, str]], link: str | None,
@@ -48,7 +56,7 @@ def pr_opened(pr: PullRequest, approvers: list[dict[str, str]] | None = None) ->
     """PR criada/pronta — notificação pros aprovadores no canal (com @menção)."""
     card = _card(
         title="🆕 Nova PR aguardando revisão",
-        subtitle=pr.title,
+        subtitle=_md(pr.title),
         facts=[
             ("Autor", pr.user.login),
             ("Repositório", pr.base.repo.full_name),
@@ -85,7 +93,7 @@ def open_prs_list(repo: str, prs: list[PullRequest]) -> dict:
         for pr in prs:
             body.append({
                 "type": "TextBlock", "wrap": True, "spacing": "Small",
-                "text": f"[#{pr.number} {pr.title}]({pr.html_url}) — "
+                "text": f"[#{pr.number} {_md(pr.title)}]({pr.html_url}) — "
                         f"_{pr.user.login}_",
             })
 
@@ -123,17 +131,17 @@ def pr_review_requested(pr: PullRequest, requester: str) -> dict:
 def pr_commented(number: int, title: str, commenter: str,
                  comment_url: str, body: str = "") -> dict:
     card = _card(f"💬 {commenter} comentou na sua PR",
-                 [("PR", f"#{number} — {title}")], comment_url,
+                 [("PR", f"#{number} — {_md(title)}")], comment_url,
                  link_label="Ver comentário")
     if body:
         snippet = body if len(body) <= 200 else body[:200] + "…"
         card["body"].insert(1, {"type": "TextBlock", "wrap": True,
-                                "text": snippet, "isSubtle": True})
+                                "text": _md(snippet), "isSubtle": True})
     return card
 
 
 def _author_facts(pr: PullRequest) -> list[tuple[str, str]]:
     return [
-        ("PR", f"#{pr.number} — {pr.title}"),
+        ("PR", f"#{pr.number} — {_md(pr.title)}"),
         ("Repositório", pr.base.repo.full_name),
     ]
