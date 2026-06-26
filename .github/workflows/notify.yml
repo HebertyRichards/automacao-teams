@@ -8,6 +8,10 @@ on:
     types: [opened, reopened, ready_for_review, closed]
   pull_request_review:
     types: [submitted]
+  issue_comment:               # comentário na conversa da PR
+    types: [created]
+  pull_request_review_comment: # comentário em linha de código
+    types: [created]
   schedule:
     - cron: "0 12 * * 1-5"   # lista de PRs abertas, dias úteis 12:00 UTC
   workflow_dispatch:          # botão pra rodar a lista manualmente

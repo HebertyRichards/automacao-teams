@@ -18,6 +18,8 @@ Evento de PR ─► GitHub Actions ─► POST ─► Power Automate ─► Team
 | PR `opened` / `reopened` / `ready_for_review` (não-draft) | grupo | 🆕 Nova PR + @menção dos aprovadores |
 | review `approved` | DM autor | ✅ Fulano aprovou sua PR |
 | review `changes_requested` | DM autor | 📝 Fulano pediu alterações |
+| `issue_comment` (comentário na conversa) | DM autor | 💬 Fulano comentou na sua PR |
+| `pull_request_review_comment` (comentário em código) | DM autor | 💬 Fulano comentou na sua PR |
 | PR `closed` (sem merge) | DM autor | 🚫 PR fechada sem merge (com branch) |
 | PR `closed` (com merge) | DM autor | 🎉 PR mergeada (com branch `origem → destino`) |
 | `schedule` / `workflow_dispatch` | grupo | 📋 Lista de PRs abertas |

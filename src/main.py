@@ -4,7 +4,12 @@ import os
 import cards
 import github_pr
 import mapping
-from models import PullRequestEvent, ReviewEvent
+from models import (
+    IssueCommentEvent,
+    PullRequestEvent,
+    ReviewCommentEvent,
+    ReviewEvent,
+)
 from settings import Settings
 from teams import TeamsClient
 
@@ -48,6 +53,32 @@ def handle_review(event: ReviewEvent, teams: TeamsClient, user_map: dict) -> Non
     teams.post_dm(mapping.email_for(pr.user.login, user_map), card)
 
 
+def handle_issue_comment(event: IssueCommentEvent, teams: TeamsClient,
+                         user_map: dict) -> None:
+    # issue_comment dispara em issues E PRs; só seguimos se for PR.
+    if event.action != "created" or not event.issue.pull_request:
+        return
+    author = event.issue.user.login
+    if event.comment.user.login.lower() == author.lower():
+        return  # não notifica o autor comentando na própria PR
+    card = cards.pr_commented(event.issue.number, event.issue.title,
+                              event.comment.user.login, event.comment.html_url,
+                              event.comment.body)
+    teams.post_dm(mapping.email_for(author, user_map), card)
+
+
+def handle_review_comment(event: ReviewCommentEvent, teams: TeamsClient,
+                          user_map: dict) -> None:
+    if event.action != "created":
+        return
+    pr = event.pull_request
+    if event.comment.user.login.lower() == pr.user.login.lower():
+        return
+    card = cards.pr_commented(pr.number, pr.title, event.comment.user.login,
+                              event.comment.html_url, event.comment.body)
+    teams.post_dm(mapping.email_for(pr.user.login, user_map), card)
+
+
 def handle_schedule(settings: Settings, teams: TeamsClient) -> None:
     prs = github_pr.list_open_prs(settings.github_repository, settings.github_token)
     teams.post_channel(cards.open_prs_list(settings.github_repository, prs))
@@ -67,6 +98,10 @@ def main() -> None:
                             user_map, approvers)
     elif event_name == "pull_request_review":
         handle_review(ReviewEvent.model_validate(raw), teams, user_map)
+    elif event_name == "issue_comment":
+        handle_issue_comment(IssueCommentEvent.model_validate(raw), teams, user_map)
+    elif event_name == "pull_request_review_comment":
+        handle_review_comment(ReviewCommentEvent.model_validate(raw), teams, user_map)
     elif event_name in ("schedule", "workflow_dispatch"):
         handle_schedule(settings, teams)
     else:
