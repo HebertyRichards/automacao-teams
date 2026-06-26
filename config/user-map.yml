@@ -1,10 +1,17 @@
 # Mapa: login do GitHub -> e-mail com que a pessoa entra no Teams.
 
-# DM pro AUTOR: liga login do GitHub -> e-mail do Teams
+# DM pro AUTOR: liste só as EXCEÇÕES (quando o login do GitHub != prefixo do e-mail)
 users:
   HebertyRichards: hebertylima@geeknine.onmicrosoft.com
+  Heberyn: hebertylima@geeknine.onmicrosoft.com
 
-# Aprovadores @mencionados no canal/grupo quando uma PR é aberta.
+# Convenção automática (opcional) — DESCOMENTE para NÃO precisar listar todo mundo:
+# qualquer login do GitHub vira {login}@geeknine.onmicrosoft.com, então todos do
+# domínio geeknine recebem a DM automaticamente. (As exceções em "users" têm prioridade.)
+# email_domain: geeknine.onmicrosoft.com
+
+# Aprovadores @mencionados no grupo quando uma PR é aberta (e-mails individuais)
 approvers:
   - name: Heberty Lima
     email: hebertylima@geeknine.onmicrosoft.com
+
