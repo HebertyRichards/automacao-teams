@@ -115,6 +115,18 @@ def pr_changes_requested(pr: PullRequest, reviewer: str) -> dict:
                  _author_facts(pr), pr.html_url, link_label="Ver comentários")
 
 
+def pr_commented(number: int, title: str, commenter: str,
+                 comment_url: str, body: str = "") -> dict:
+    card = _card(f"💬 {commenter} comentou na sua PR",
+                 [("PR", f"#{number} — {title}")], comment_url,
+                 link_label="Ver comentário")
+    if body:
+        snippet = body if len(body) <= 200 else body[:200] + "…"
+        card["body"].insert(1, {"type": "TextBlock", "wrap": True,
+                                "text": snippet, "isSubtle": True})
+    return card
+
+
 def _author_facts(pr: PullRequest) -> list[tuple[str, str]]:
     return [
         ("PR", f"#{pr.number} — {pr.title}"),

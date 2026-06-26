@@ -43,3 +43,29 @@ class ReviewEvent(BaseModel):
     action: str
     pull_request: PullRequest
     review: Review
+
+
+class Comment(BaseModel):
+    html_url: str
+    body: str = ""
+    user: GitHubUser
+
+
+class IssueRef(BaseModel):
+    number: int
+    title: str
+    html_url: str
+    user: GitHubUser
+    pull_request: dict | None = None
+
+
+class IssueCommentEvent(BaseModel):
+    action: str
+    issue: IssueRef
+    comment: Comment
+
+
+class ReviewCommentEvent(BaseModel):
+    action: str
+    pull_request: PullRequest
+    comment: Comment

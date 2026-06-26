@@ -1,7 +1,16 @@
 
+# DM pro AUTOR: liste só as EXCEÇÕES (quando o login do GitHub != prefixo do e-mail)
 users:
   HebertyRichards: hebertylima@geeknine.onmicrosoft.com
+  Heberyn: hebertylima@geeknine.onmicrosoft.com
 
+# Convenção automática (opcional) — DESCOMENTE para NÃO precisar listar todo mundo:
+# qualquer login do GitHub vira {login}@geeknine.onmicrosoft.com, então todos do
+# domínio geeknine recebem a DM automaticamente. (As exceções em "users" têm prioridade.)
+# email_domain: geeknine.onmicrosoft.com
+
+# Aprovadores @mencionados no grupo quando uma PR é aberta (e-mails individuais)
 approvers:
   - name: HebertyRichards
     email: hebertylima@geeknine.onmicrosoft.com
+
