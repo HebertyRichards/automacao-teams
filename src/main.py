@@ -1,6 +1,7 @@
 import json
 import os
 
+# testando teams
 import cards
 import github_pr
 import mapping
@@ -115,5 +116,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-##  vamooo  novamente

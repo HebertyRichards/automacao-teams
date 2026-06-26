@@ -1,4 +1,3 @@
-# Mapa: login do GitHub -> e-mail com que a pessoa entra no Teams.
 
 # DM pro AUTOR: liste só as EXCEÇÕES (quando o login do GitHub != prefixo do e-mail)
 users:
@@ -12,6 +11,6 @@ users:
 
 # Aprovadores @mencionados no grupo quando uma PR é aberta (e-mails individuais)
 approvers:
-  - name: Heberty Lima
+  - name: HebertyRichards
     email: hebertylima@geeknine.onmicrosoft.com
 
