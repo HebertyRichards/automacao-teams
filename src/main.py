@@ -1,10 +1,12 @@
 import json
 import os
+import sys
 
-# testando teams
 import cards
+import deploy
 import github_pr
 import mapping
+import sso
 from models import (
     IssueCommentEvent,
     PullRequestEvent,
@@ -13,6 +15,9 @@ from models import (
 )
 from settings import Settings
 from teams import TeamsClient
+
+# Ações de PR que mexem no conjunto de PRs abertas -> atualizam a lista única.
+_LIST_ACTIONS = {"opened", "reopened", "ready_for_review", "closed"}
 
 
 def _load_event() -> dict:
@@ -23,8 +28,29 @@ def _load_event() -> dict:
         return json.load(fh)
 
 
+def _emit_message_id(message_id: str) -> None:
+    """Expõe o message-id da lista pro workflow (persistir como vars token)."""
+    if not message_id:
+        return
+    out = os.environ.get("GITHUB_OUTPUT")
+    if out:
+        with open(out, "a", encoding="utf-8") as fh:
+            fh.write(f"message_id={message_id}\n")
+    print(f"message_id={message_id}")
+
+
+def refresh_pr_list(settings: Settings, teams: TeamsClient) -> None:
+    """Remonta a lista de PRs abertas e atualiza a mensagem única no Teams."""
+    if not teams.list_webhook:
+        return
+    prs = github_pr.list_open_prs(settings.github_repository, settings.github_token)
+    card = cards.open_prs_list(settings.github_repository, prs)
+    new_id = teams.post_or_update_list(card, settings.teams_pr_message_id)
+    _emit_message_id(new_id)
+
+
 def handle_pull_request(event: PullRequestEvent, teams: TeamsClient,
-                        user_map: dict, approvers: list[dict],
+                        user_map: dict, mentions: list[dict],
                         domain: str) -> None:
     pr = event.pull_request
 
@@ -32,7 +58,7 @@ def handle_pull_request(event: PullRequestEvent, teams: TeamsClient,
         if pr.draft:
             print("PR em draft — ignorando.")
             return
-        teams.post_channel(cards.pr_opened(pr, approvers))
+        teams.post_channel(cards.pr_opened(pr, mentions))
 
     elif event.action == "closed":
         card = cards.pr_merged(pr) if pr.merged else cards.pr_closed(pr)
@@ -64,59 +90,102 @@ def handle_review(event: ReviewEvent, teams: TeamsClient, user_map: dict,
 
 
 def handle_issue_comment(event: IssueCommentEvent, teams: TeamsClient,
-                         user_map: dict, domain: str) -> None:
-    # issue_comment dispara em issues E PRs; só seguimos se for PR.
+                         settings: Settings) -> None:
+    # issue_comment só serve pro comando "/github" (refresh da lista).
+    # Comentário na CONVERSA da PR NÃO gera DM — só comentário em código faz.
     if event.action != "created" or not event.issue.pull_request:
         return
-    author = event.issue.user.login
-    if event.comment.user.login.lower() == author.lower():
-        return  # não notifica o autor comentando na própria PR
-    card = cards.pr_commented(event.issue.number, event.issue.title,
-                              event.comment.user.login, event.comment.html_url,
-                              event.comment.body)
-    teams.post_dm(mapping.email_for(author, user_map, domain), card)
+    if (event.comment.body or "").strip().lower() in ("/github", "github"):
+        refresh_pr_list(settings, teams)
 
 
 def handle_review_comment(event: ReviewCommentEvent, teams: TeamsClient,
                           user_map: dict, domain: str) -> None:
+    # DM só pra comentário em CÓDIGO (review comment).
     if event.action != "created":
         return
     pr = event.pull_request
-    if event.comment.user.login.lower() == pr.user.login.lower():
-        return
-    card = cards.pr_commented(pr.number, pr.title, event.comment.user.login,
+    commenter = event.comment.user
+    if commenter.login.lower() == pr.user.login.lower():
+        return  # autor comentando no próprio código
+    if _is_bot(commenter):
+        return  # bots não geram DM
+    card = cards.pr_commented(pr.number, pr.title, commenter.login,
                               event.comment.html_url, event.comment.body)
     teams.post_dm(mapping.email_for(pr.user.login, user_map, domain), card)
 
 
-def handle_schedule(settings: Settings, teams: TeamsClient) -> None:
-    prs = github_pr.list_open_prs(settings.github_repository, settings.github_token)
-    teams.post_channel(cards.open_prs_list(settings.github_repository, prs))
+def handle_deploy(settings: Settings, teams: TeamsClient) -> None:
+    """Card de deploy (Jenkins): projeto deployado com os commits do range."""
+    base = settings.deploy_base or os.environ.get("GIT_PREVIOUS_SUCCESSFUL_COMMIT", "")
+    head = settings.deploy_head or os.environ.get("GIT_COMMIT", "")
+    if not head:
+        raise RuntimeError("Deploy: defina DEPLOY_HEAD (ou rode no Jenkins com GIT_COMMIT).")
+
+    if base:
+        commits = deploy.commits_between(settings.github_repository, base, head,
+                                         settings.github_token)
+    else:
+        # 1º build: sem build bem-sucedido anterior -> sem baseline p/ o range.
+        print("Deploy: sem baseline (1º build) — mostrando só o último commit.")
+        commits = deploy.latest_commit(settings.github_repository, head,
+                                       settings.github_token)
+
+    card = cards.deploy_card(settings.github_repository, settings.deploy_project,
+                             base or head, head, commits, settings.deploy_env)
+    teams.post_deploy(card)
+
+
+def _build_user_map(settings: Settings) -> dict[str, str]:
+    """Merge dos mapas login->email. SSO é a fonte PRINCIPAL; o user-map.yml é
+    o FALLBACK (só entra pros logins que o SSO não resolveu)."""
+    explicit = mapping.load_map(settings.user_map_path)
+    try:
+        sso_map = sso.resolve_emails(settings.github_org, settings.sso_token)
+    except Exception as exc:  # SSO é best-effort: não derruba as notificações
+        print(f"SSO indisponível ({exc}) — seguindo só com o mapa manual.")
+        sso_map = {}
+    # {**explicit, **sso_map}: SSO sobrescreve; o yml preenche o que faltar.
+    return {**explicit, **sso_map}
+
+
+def _is_bot(user) -> bool:
+    return user.type.lower() == "bot" or user.login.lower().endswith("[bot]")
 
 
 def main() -> None:
     settings = Settings()
-    teams = TeamsClient(settings.teams_channel_webhook, settings.teams_dm_webhook)
-    user_map = mapping.load_map(settings.user_map_path)
-    approvers = mapping.load_approvers(settings.user_map_path)
+    teams = TeamsClient(settings.teams_channel_webhook, settings.teams_dm_webhook,
+                        settings.teams_list_webhook, settings.teams_deploy_webhook)
+
+    mode = (settings.notify_mode or os.environ.get("NOTIFY_MODE", "")).lower()
+    if mode == "deploy" or "--deploy" in sys.argv:
+        handle_deploy(settings, teams)
+        return
+
+    user_map = _build_user_map(settings)
+    # @menções no canal: aprovadores (individuais) + reviewers (times, ex.: QA).
+    mentions = (mapping.load_approvers(settings.user_map_path)
+                + mapping.load_reviewers(settings.user_map_path))
     domain = mapping.load_domain(settings.user_map_path)
 
     event_name = os.environ.get("GITHUB_EVENT_NAME", "")
     raw = _load_event()
 
     if event_name == "pull_request":
-        handle_pull_request(PullRequestEvent.model_validate(raw), teams,
-                            user_map, approvers, domain)
+        event = PullRequestEvent.model_validate(raw)
+        handle_pull_request(event, teams, user_map, mentions, domain)
+        if event.action in _LIST_ACTIONS:
+            refresh_pr_list(settings, teams)
     elif event_name == "pull_request_review":
         handle_review(ReviewEvent.model_validate(raw), teams, user_map, domain)
     elif event_name == "issue_comment":
-        handle_issue_comment(IssueCommentEvent.model_validate(raw), teams,
-                             user_map, domain)
+        handle_issue_comment(IssueCommentEvent.model_validate(raw), teams, settings)
     elif event_name == "pull_request_review_comment":
         handle_review_comment(ReviewCommentEvent.model_validate(raw), teams,
                               user_map, domain)
     elif event_name in ("schedule", "workflow_dispatch"):
-        handle_schedule(settings, teams)
+        refresh_pr_list(settings, teams)
     else:
         print(f"Evento '{event_name}' não tratado — nada a fazer.")
 

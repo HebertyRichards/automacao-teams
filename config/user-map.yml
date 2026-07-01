@@ -1,5 +1,8 @@
 
-# DM pro AUTOR: liste só as EXCEÇÕES (quando o login do GitHub != prefixo do e-mail)
+# PRECEDÊNCIA do e-mail (login -> email):
+#   1º SSO/SAML (fonte PRINCIPAL, automático)  ->  2º users: abaixo (FALLBACK)
+#   ->  3º convenção email_domain.
+# Ou seja: com o SSO ligado, este "users:" só é usado pra quem o SSO NÃO resolver.
 users:
   HebertyRichards: hebertylima@geeknine.onmicrosoft.com
   Heberyn: hebertylima@geeknine.onmicrosoft.com
@@ -11,12 +14,20 @@ users:
 #    "HebertyRichards" -> "hebertylima@..."), use as exceções em "users" acima.
 # email_domain: geeknine.onmicrosoft.com
 
-# GitHub Enterprise + SSO (SAML com Azure AD): nesse cenário dá pra buscar o
-# e-mail real de cada pessoa AUTOMATICAMENTE pela API do GitHub (sem mapa manual
-# nem convenção). Não está implementado aqui — veja a seção "SSO" no README.
+# GitHub Enterprise + SSO (SAML): o e-mail real de cada pessoa é buscado
+# AUTOMATICAMENTE pela API GraphQL do GitHub (src/sso.py). Basta definir o
+# secret SSO_TOKEN (PAT/GitHub App com admin:org). As exceções em "users:" acima
+# têm PRIORIDADE sobre o SSO. Veja a seção "SSO" no README.
 
-# Aprovadores @mencionados no grupo quando uma PR é aberta (e-mails individuais)
+# Aprovadores individuais @mencionados no canal quando uma PR é aberta.
+# Mesmo formato do "users:" -> Nome: email  (Nome = texto exibido na @menção)
 approvers:
-  - name: HebertyRichards
-    email: hebertylima@geeknine.onmicrosoft.com
+  Heberty: hebertylima@geeknine.onmicrosoft.com
+  Fulano: fulano@geeknine.onmicrosoft.com
+
+# Time(s) revisor(es) @mencionado(s) junto dos aprovadores (ex.: QA, DevOps).
+# Mesmo formato -> NomeDoTime: email (do time/DL)
+reviewers:
+  QA: qa@geeknine.onmicrosoft.com
+  DevOps: devops@geeknine.onmicrosoft.com
 

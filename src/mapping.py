@@ -40,14 +40,26 @@ def email_for(login: str, mapping: dict[str, str], domain: str = "") -> str:
     return ""
 
 
-def load_approvers(path: str) -> list[dict[str, str]]:
+def _load_mentions(path: str, key: str) -> list[dict[str, str]]:
+    """@menções no formato de mapa `Nome: email` (igual ao `users:`). O nome é o
+    texto exibido na @menção no Teams. Usada por approvers e reviewers."""
     if not path or not os.path.exists(path):
         return []
     with open(path, encoding="utf-8") as fh:
         data = yaml.safe_load(fh) or {}
-    approvers = data.get("approvers") or []
+    items = data.get(key) or {}
     return [
-        {"name": str(a["name"]), "email": str(a["email"])}
-        for a in approvers
-        if isinstance(a, dict) and a.get("name") and a.get("email")
+        {"name": str(name), "email": str(email)}
+        for name, email in items.items()
+        if name and email
     ]
+
+
+def load_approvers(path: str) -> list[dict[str, str]]:
+    """Aprovadores individuais @mencionados no canal (nome do Teams + e-mail)."""
+    return _load_mentions(path, "approvers")
+
+
+def load_reviewers(path: str) -> list[dict[str, str]]:
+    """Time(s) revisor(es) @mencionado(s) junto — ex.: QA (nome + e-mail do time)."""
+    return _load_mentions(path, "reviewers")

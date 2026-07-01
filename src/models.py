@@ -3,6 +3,7 @@ from pydantic import BaseModel
 
 class GitHubUser(BaseModel):
     login: str
+    type: str = ""   # "User" ou "Bot" — usado pra não notificar sobre bots
 
 
 class Repo(BaseModel):
@@ -71,3 +72,15 @@ class ReviewCommentEvent(BaseModel):
     action: str
     pull_request: PullRequest
     comment: Comment
+
+
+class CommitDetail(BaseModel):
+    message: str = ""
+
+
+class DeployCommit(BaseModel):
+    """Item de commit retornado pela API `compare` do GitHub."""
+    sha: str
+    html_url: str = ""
+    commit: CommitDetail = CommitDetail()
+    author: GitHubUser | None = None  # pode ser null (autor sem conta no GitHub)

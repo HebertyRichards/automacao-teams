@@ -16,6 +16,12 @@ on:
     - cron: "0 12 * * 1-5"   # lista de PRs abertas, dias úteis 12:00 UTC
   workflow_dispatch:          # botão pra rodar a lista manualmente
 
+# Serializa os runs: 2 PRs ao mesmo tempo brigariam pelo vars token
+# (TEAMS_PR_MESSAGE_ID) e pela mensagem única. Não cancela (não perde notificação).
+concurrency:
+  group: teams-notify-${{ github.repository }}
+  cancel-in-progress: false
+
 permissions:
   contents: read
   pull-requests: read
@@ -34,9 +40,26 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Notificar Teams
+        id: notify
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_ORG: ${{ github.repository_owner }}
+          SSO_TOKEN: ${{ secrets.SSO_TOKEN }}
           TEAMS_CHANNEL_WEBHOOK: ${{ secrets.TEAMS_CHANNEL_WEBHOOK }}
           TEAMS_DM_WEBHOOK: ${{ secrets.TEAMS_DM_WEBHOOK }}
+          TEAMS_LIST_WEBHOOK: ${{ secrets.TEAMS_LIST_WEBHOOK }}
+          TEAMS_PR_MESSAGE_ID: ${{ vars.TEAMS_PR_MESSAGE_ID }}
           USER_MAP_PATH: config/user-map.yml
         run: python src/main.py
+
+      # Persiste o message-id da lista como variável do repo (o "vars token"),
+      # pra próxima execução ATUALIZAR a mesma mensagem em vez de repostar.
+      # Token DEDICADO (separado do SSO): precisa de escopo p/ gravar variables
+      # (PAT com `repo`, ou GitHub App com permissão Variables: write).
+      - name: Persistir message-id da lista (vars token)
+        if: >-
+          steps.notify.outputs.message_id != '' &&
+          steps.notify.outputs.message_id != vars.TEAMS_PR_MESSAGE_ID
+        env:
+          GH_TOKEN: ${{ secrets.GH_VARS_TOKEN }}
+        run: gh variable set TEAMS_PR_MESSAGE_ID --body "${{ steps.notify.outputs.message_id }}"

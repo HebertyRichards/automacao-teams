@@ -1,6 +1,9 @@
 import re
 
-from models import PullRequest
+from models import DeployCommit, PullRequest
+
+# Adaptive Card estoura por volta de ~28KB; limitamos os itens listados.
+_MAX_ITEMS = 100
 
 _MD_SPECIAL = re.compile(r"([\\`*_~\[\]()])")
 
@@ -52,8 +55,8 @@ def _mentions(approvers: list[dict[str, str]]) -> tuple[str, list[dict]]:
     return " ".join(tags), entities
 
 
-def pr_opened(pr: PullRequest, approvers: list[dict[str, str]] | None = None) -> dict:
-    """PR criada/pronta — notificação pros aprovadores no canal (com @menção)."""
+def pr_opened(pr: PullRequest, mentions: list[dict[str, str]] | None = None) -> dict:
+    """PR criada/pronta — notificação no canal @mencionando aprovadores + times."""
     card = _card(
         title="🆕 Nova PR aguardando revisão",
         subtitle=_md(pr.title),
@@ -65,8 +68,8 @@ def pr_opened(pr: PullRequest, approvers: list[dict[str, str]] | None = None) ->
         link=pr.html_url,
         link_label="Revisar PR",
     )
-    if approvers:
-        text, entities = _mentions(approvers)
+    if mentions:
+        text, entities = _mentions(mentions)
         card["body"].insert(1, {
             "type": "TextBlock", "wrap": True, "spacing": "Small",
             "text": f"{text} — revisem por favor 👀",
@@ -90,12 +93,56 @@ def open_prs_list(repo: str, prs: list[PullRequest]) -> dict:
             {"type": "TextBlock", "text": repo, "isSubtle": True, "wrap": True,
              "spacing": "None"},
         ]
-        for pr in prs:
+        for pr in prs[:_MAX_ITEMS]:
+            # link (nome do PR) + autor
             body.append({
                 "type": "TextBlock", "wrap": True, "spacing": "Small",
                 "text": f"[#{pr.number} {_md(pr.title)}]({pr.html_url}) — "
                         f"_{pr.user.login}_",
             })
+        hidden = len(prs) - _MAX_ITEMS
+        if hidden > 0:
+            body.append({"type": "TextBlock", "wrap": True, "spacing": "Small",
+                         "isSubtle": True, "text": f"… e mais {hidden} PR(s)"})
+
+    return {"type": "AdaptiveCard",
+            "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+            "version": "1.4", "body": body, "actions": []}
+
+
+# --- Deploy (Jenkins) --------------------------------------------------------
+
+def deploy_card(repo: str, project: str, base: str, head: str,
+                commits: list[DeployCommit], environment: str = "") -> dict:
+    """Card de deploy: projeto X foi deployado com os commits a seguir."""
+    facts: list[tuple[str, str]] = []
+    if environment:
+        facts.append(("Ambiente", environment))
+    facts += [
+        ("Repositório", repo),
+        ("Range", f"{base[:7]} → {head[:7]}"),
+        ("Commits", str(len(commits))),
+    ]
+
+    body: list[dict] = [
+        {"type": "TextBlock", "size": "Large", "weight": "Bolder",
+         "text": f"🚀 Deploy — {_md(project or repo)}", "wrap": True},
+        {"type": "FactSet",
+         "facts": [{"title": k, "value": v} for k, v in facts]},
+    ]
+
+    for c in commits[:_MAX_ITEMS]:
+        subject = (c.commit.message or c.sha).splitlines()[0]
+        line = f"[`{c.sha[:7]}`]({c.html_url}) {_md(subject)}"
+        if c.author:
+            line += f" — _{c.author.login}_"
+        body.append({"type": "TextBlock", "wrap": True, "spacing": "Small",
+                     "text": line})
+
+    hidden = len(commits) - _MAX_ITEMS
+    if hidden > 0:
+        body.append({"type": "TextBlock", "wrap": True, "spacing": "Small",
+                     "isSubtle": True, "text": f"… e mais {hidden} commit(s)"})
 
     return {"type": "AdaptiveCard",
             "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
